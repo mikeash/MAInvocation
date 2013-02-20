@@ -101,6 +101,7 @@ static void Simple(void)
     [inv invoke];
     ASSERT([obj->_calledSelectors isEqual: @[ @"empty" ]], obj->_calledSelectors);
     ASSERT([obj->_calledArguments isEqual: @[ @[] ]], obj->_calledArguments);
+    [obj release];
 }
 
 static void Argument(void)
@@ -114,6 +115,7 @@ static void Argument(void)
     [inv invoke];
     ASSERT([obj->_calledSelectors isEqual: @[ @"intArg:" ]], obj->_calledSelectors);
     ASSERT([obj->_calledArguments isEqual: @[ @[ @42 ] ]], obj->_calledArguments);
+    [obj release];
 }
 
 static void LotsOfArguments(void)
@@ -128,6 +130,7 @@ static void LotsOfArguments(void)
     [inv invoke];
     ASSERT([obj->_calledSelectors isEqual: @[ @"lotsOfIntArgs::::::::::" ]], obj->_calledSelectors);
     ASSERT([obj->_calledArguments isEqual: (@[ @[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9 ] ])], obj->_calledArguments);
+    [obj release];
 }
 
 static void ReturnValue(void)
@@ -144,6 +147,8 @@ static void ReturnValue(void)
     int val;
     [inv getReturnValue: &val];
     ASSERT(val == 42, @(val));
+    
+    [obj release];
 }
 
 int main(int argc, char **argv)
