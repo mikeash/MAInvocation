@@ -1,6 +1,8 @@
 #import "MAInvocation.h"
 
-@implementation MAInvocation
+@implementation MAInvocation {
+    NSMethodSignature *_sig;
+}
 
 + (NSInvocation *)invocationWithMethodSignature: (NSMethodSignature *)sig
 {
@@ -11,8 +13,16 @@
 {
     if((self = [super init]))
     {
+        _sig = [sig retain];
     }
     return self;
+}
+
+- (void)dealloc
+{
+    [_sig release];
+    
+    [super dealloc];
 }
 
 - (NSMethodSignature *)methodSignature
@@ -31,20 +41,26 @@
 
 - (id)target
 {
-    return nil;
+    id target;
+    [self getArgument: &target atIndex: 0];
+    return target;
 }
 
 - (void)setTarget: (id)target
 {
+    [self setArgument: &target atIndex: 0];
 }
 
 - (SEL)selector
 {
-    return NULL;
+    SEL sel;
+    [self getArgument: &sel atIndex: 1];
+    return sel;
 }
 
 - (void)setSelector: (SEL)selector
 {
+    [self setArgument: &selector atIndex: 1];
 }
 
 - (void)getReturnValue: (void *)retLoc
@@ -65,6 +81,7 @@
 
 - (void)invoke
 {
+    [self invokeWithTarget: [self target]];
 }
 
 - (void)invokeWithTarget: (id)target
