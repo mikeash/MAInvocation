@@ -1,4 +1,4 @@
-// clang -framework Foundation -g -W -Wall -Wno-unused-parameter MAInvocation.m tester.m
+// clang -framework Foundation -g -W -Wall -Wno-unused-parameter MAInvocation.m MAInvocation-asm.s tester.m
 
 #import "MAInvocation.h"
 
