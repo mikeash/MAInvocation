@@ -99,9 +99,9 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
     RECORD(a, b, c, d, e, f, g, h, i, j);
 }
 
-- (void)objArg: a
+- (void)objArg: a : b
 {
-    RECORD(a);
+    RECORD(a, b);
 }
 
 @end
@@ -186,16 +186,20 @@ static void RetainArguments(void)
 {
     TestClass *obj = [[TestClass alloc] init];
     TestClass *obj2 = [[TestClass alloc] init];
-    SEL sel = @selector(objArg:);
+    TestClass *obj3 = [[TestClass alloc] init];
+    SEL sel = @selector(objArg::);
     MAInvocation *inv = [MAInvocation invocationWithMethodSignature: [obj methodSignatureForSelector: sel]];
     [inv setTarget: obj];
     [inv setSelector: sel];
     [inv setArgument: &obj2 atIndex: 2];
     [inv retainArguments];
+    [inv setArgument: &obj3 atIndex: 3];
     
     ASSERT([obj2->_calledSelectors isEqual: @[ @"retain" ]], obj2->_calledSelectors);
+    ASSERT([obj3->_calledSelectors isEqual: @[ @"retain" ]], obj2->_calledSelectors);
     [obj release];
     [obj2 release];
+    [obj3 release];
 }
 
 static void ObjectReturn(void)

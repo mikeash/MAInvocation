@@ -3,9 +3,17 @@
 #import "MAInvocation-asm.h"
 
 
+enum ArgumentClassification
+{
+    ArgumentObject,
+    ArgumentBlock,
+    ArgumentNonObject
+};
+
 @implementation MAInvocation {
     NSMethodSignature *_sig;
     struct RawArguments _raw;
+    BOOL _argumentsRetained;
 }
 
 + (NSInvocation *)invocationWithMethodSignature: (NSMethodSignature *)sig
@@ -31,6 +39,13 @@
 
 - (void)dealloc
 {
+    if(_argumentsRetained)
+    {
+        [self iterateObjectArguments: ^(NSUInteger idx, id obj, BOOL isBlock) {
+            [obj release];
+        }];
+    }
+    
     [_sig release];
     free(_raw.stackArgs);
     
@@ -44,11 +59,26 @@
 
 - (void)retainArguments
 {
+    if(_argumentsRetained)
+        return;
+    
+    [self iterateObjectArguments: ^(NSUInteger idx, id obj, BOOL isBlock) {
+        if(isBlock)
+        {
+            obj = [obj copy];
+            [self setArgument: &obj atIndex: idx];
+        }
+        else
+        {
+            [obj retain];
+        }
+    }];
+    _argumentsRetained = YES;
 }
 
 - (BOOL)argumentsRetained
 {
-    return YES;
+    return _argumentsRetained;
 }
 
 - (id)target
@@ -102,8 +132,22 @@
     
     if(dest)
     {
-        NSUInteger size = [self sizeAtIndex: idx];
-        memcpy(dest, argumentLocation, size);
+        enum ArgumentClassification c = [self classifyArgumentAtIndex: idx];
+        if(_argumentsRetained && c == ArgumentObject)
+        {
+            [*(id *)dest release];
+            *(id *)dest = [*(id *)argumentLocation retain];
+        }
+        else if(_argumentsRetained && c == ArgumentBlock)
+        {
+            [*(id *)dest release];
+            *(id *)dest = [*(id *)argumentLocation copy];;
+        }
+        else
+        {
+            NSUInteger size = [self sizeAtIndex: idx];
+            memcpy(dest, argumentLocation, size);
+        }
     }
 }
 
@@ -155,6 +199,32 @@
     NSUInteger size;
     NSGetSizeAndAlignment(type, &size, NULL);
     return size;
+}
+
+- (void)iterateObjectArguments: (void (^)(NSUInteger idx, id obj, BOOL isBlock))block
+{
+    for(NSUInteger i = 0; i < [_sig numberOfArguments]; i++)
+    {
+        enum ArgumentClassification c = [self classifyArgumentAtIndex: i];
+        if(c == ArgumentObject || c == ArgumentBlock)
+        {
+            id arg;
+            [self getArgument: &arg atIndex: i];
+            block(i, arg, c == ArgumentBlock);
+        }
+    }
+}
+
+- (enum ArgumentClassification)classifyArgumentAtIndex: (NSUInteger)idx
+{
+    const char *idType = @encode(id);
+    const char *blockType = @encode(void (^)(void));
+    const char *type = [_sig getArgumentTypeAtIndex: idx];
+    if(strcmp(type, idType) == 0)
+        return ArgumentObject;
+    if(strcmp(type, blockType) == 0)
+        return ArgumentBlock;
+    return ArgumentNonObject;
 }
 
 void MAInvocationCall_disabled(struct RawArguments *r)
