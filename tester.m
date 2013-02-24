@@ -385,6 +385,25 @@ static void ForwardingReturnBigStruct(void)
     [obj free];
 }
 
+static void StretCall(void)
+{
+    TestClass *obj = [[TestClass alloc] init];
+    
+    SEL sel = @selector(dummyStret);
+    MAInvocation *inv = [MAInvocation invocationWithMethodSignature: [obj methodSignatureForSelector: sel]];
+    [inv setTarget: obj];
+    [inv setSelector: sel];
+    [inv invoke];
+    
+    struct BigStruct s;
+    [inv getReturnValue: &s];
+    
+    for(int i = 0; i < 10; i++)
+        ASSERT(((int *)&s)[i] == i);
+    
+    [obj release];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -399,4 +418,5 @@ int main(int argc, char **argv)
     TEST(ForwardingReturn);
     TEST(ForwardingReturnSmallStruct);
     TEST(ForwardingReturnBigStruct);
+    TEST(StretCall);
 }

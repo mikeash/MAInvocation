@@ -143,10 +143,11 @@ enum TypeClassification
 
 - (void)getArgument: (void *)argumentLocation atIndex: (NSInteger)idx
 {
+    NSInteger rawArgumentIndex = idx;
     if(_raw.isStretCall)
-        idx++;
+        rawArgumentIndex++;
     
-    uint64_t *src = [self argumentPointerAtIndex: idx];
+    uint64_t *src = [self argumentPointerAtIndex: rawArgumentIndex];
     
     if(src)
     {
@@ -157,10 +158,11 @@ enum TypeClassification
 
 - (void)setArgument: (void *)argumentLocation atIndex: (NSInteger)idx
 {
+    NSInteger rawArgumentIndex = idx;
     if(_raw.isStretCall)
-        idx++;
+        rawArgumentIndex++;
     
-    uint64_t *dest = [self argumentPointerAtIndex: idx];
+    uint64_t *dest = [self argumentPointerAtIndex: rawArgumentIndex];
     
     if(dest)
     {
@@ -191,6 +193,8 @@ enum TypeClassification
 - (void)invokeWithTarget: (id)target
 {
     _raw.fptr = [target methodForSelector: [self selector]];
+    if(_raw.isStretCall)
+        _raw.rdi = (uint64_t)[self returnValuePtr];
     MAInvocationCall(&_raw);
 }
 
