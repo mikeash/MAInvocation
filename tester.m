@@ -117,6 +117,10 @@ struct BigStruct { int a, b, c, d, e, f, g, h, i, j; };
     return (struct BigStruct){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 }
 
+- (void)cString: (char *)param
+{
+}
+
 @end
 
 
@@ -404,6 +408,35 @@ static void StretCall(void)
     [obj release];
 }
 
+static void CStringCopying(void)
+{
+    TestClass *obj = [[TestClass alloc] init];
+    
+    SEL sel = @selector(cString:);
+    MAInvocation *inv = [MAInvocation invocationWithMethodSignature: [obj methodSignatureForSelector: sel]];
+    [inv setTarget: obj];
+    [inv setSelector: sel];
+    
+    char *str = "abcdefg";
+    [inv setArgument: &str atIndex: 2];
+    
+    char *outStr;
+    [inv getArgument: &outStr atIndex: 2];
+    ASSERT(str == outStr);
+    
+    [inv retainArguments];
+    [inv getArgument: &outStr atIndex: 2];
+    ASSERT(str != outStr);
+    ASSERT(strcmp(str, outStr) == 0);
+    
+    [inv setArgument: &str atIndex: 2];
+    [inv getArgument: &outStr atIndex: 2];
+    ASSERT(str != outStr);
+    ASSERT(strcmp(str, outStr) == 0);
+    
+    [obj release];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -419,4 +452,5 @@ int main(int argc, char **argv)
     TEST(ForwardingReturnSmallStruct);
     TEST(ForwardingReturnBigStruct);
     TEST(StretCall);
+    TEST(CStringCopying);
 }

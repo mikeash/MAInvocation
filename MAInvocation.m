@@ -56,7 +56,7 @@ enum TypeClassification
 {
     if(_argumentsRetained)
     {
-        [self iterateObjectArguments: ^(NSUInteger idx, id obj, BOOL isBlock) {
+        [self iterateRetainableArguments: ^(NSUInteger idx, id obj, id block, char *cstr) {
             [obj release];
         }];
     }
@@ -86,15 +86,21 @@ enum TypeClassification
     if(_argumentsRetained)
         return;
     
-    [self iterateObjectArguments: ^(NSUInteger idx, id obj, BOOL isBlock) {
-        if(isBlock)
-        {
-            obj = [obj copy];
-            [self setArgument: &obj atIndex: idx];
-        }
-        else
+    [self iterateRetainableArguments: ^(NSUInteger idx, id obj, id block, char *cstr) {
+        if(obj)
         {
             [obj retain];
+        }
+        else if(block)
+        {
+            block = [block copy];
+            [self setArgument: &block atIndex: idx];
+        }
+        else if(cstr)
+        {
+            if(cstr != NULL)
+                cstr = strdup(cstr);
+            [self setArgument: &cstr atIndex: idx];
         }
     }];
     _argumentsRetained = YES;
@@ -177,6 +183,15 @@ enum TypeClassification
             [*(id *)dest release];
             *(id *)dest = [*(id *)argumentLocation copy];;
         }
+        else if(_argumentsRetained && c == TypeCString)
+        {
+            free(*(char **)dest);
+            
+            char *cstr = *(char **)argumentLocation;
+            if(cstr != NULL)
+                cstr = strdup(cstr);
+            *(char **)dest = cstr;
+        }
         else
         {
             NSUInteger size = [self sizeAtIndex: idx];
@@ -237,7 +252,7 @@ enum TypeClassification
     return size;
 }
 
-- (void)iterateObjectArguments: (void (^)(NSUInteger idx, id obj, BOOL isBlock))block
+- (void)iterateRetainableArguments: (void (^)(NSUInteger idx, id obj, id block, char *cstr))block
 {
     for(NSUInteger i = 0; i < [_sig numberOfArguments]; i++)
     {
@@ -246,7 +261,17 @@ enum TypeClassification
         {
             id arg;
             [self getArgument: &arg atIndex: i];
-            block(i, arg, c == TypeBlock);
+            
+            id o = c == TypeObject ? arg : nil;
+            id b = c == TypeBlock ? arg : nil;
+            block(i, o, b, NULL);
+        }
+        else if(c == TypeCString)
+        {
+            char *arg;
+            [self getArgument: &arg atIndex: i];
+            
+            block(i, nil, nil, arg);
         }
     }
 }
