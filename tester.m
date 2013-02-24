@@ -2,6 +2,9 @@
 
 #import "MAInvocation.h"
 
+#import <objc/runtime.h>
+
+
 static unsigned gFailureCount;
 
 static void Test(const char *name, void (*f)(void))
@@ -38,6 +41,8 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 
 #define TEST(f) Test(#f, f)
 #define ASSERT(cond, ...) Assert(__FILE__, __LINE__, #cond, cond, @[ __VA_ARGS__ ])
+
+#define ARG(type, index, invocation) ^{ type temp; [invocation getArgument: &temp atIndex: (index)]; return temp; }()
 
 @interface TestClass : NSObject {
     @public
@@ -108,6 +113,69 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 - (void)objArg: a : b
 {
     RECORD(a, b);
+}
+
+@end
+
+
+@interface GenericForwarder
+
++ (id)alloc;
+- (void)free;
+- (id)id;
+- (void)setMethodSignature: (NSMethodSignature *)sig;
+- (void)setInvocationHandler: (void (^)(MAInvocation *inv))handler;
+
+@end
+
+@implementation GenericForwarder
+{
+    Class isa;
+    NSMethodSignature *_sig;
+    void (^_invocationHandler)(MAInvocation *);
+}
+
++ (id)alloc
+{
+    GenericForwarder *obj = calloc(1, class_getInstanceSize(self));
+    obj->isa = self;
+    return obj;
+}
+
+- (void)free
+{
+    [_sig release];
+    [_invocationHandler release];
+    free(self);
+}
+
+- (id)id
+{
+    return self;
+}
+
+- (void)setMethodSignature: (NSMethodSignature *)sig
+{
+    [sig retain];
+    [_sig release];
+    _sig = sig;
+}
+
+- (void)setInvocationHandler: (void (^)(MAInvocation *inv))handler
+{
+    handler = [handler copy];
+    [_invocationHandler release];
+    _invocationHandler = handler;
+}
+
+- (NSMethodSignature *)methodSignatureForSelector: (SEL)sel
+{
+    return _sig;
+}
+
+- (void)forwardInvocation: (MAInvocation *)inv
+{
+    _invocationHandler(inv);
 }
 
 @end
@@ -224,11 +292,61 @@ static void ObjectReturn(void)
     [obj release];
 }
 
-static void Forwarding(void)
+static void BasicForwarding(void)
 {
-    TestClass *obj = [[TestClass alloc] init];
-    [obj dummyIntArgs: 1 : 2 : 3];
-    [obj dummyStret];
+    __block GenericForwarder *obj = [GenericForwarder alloc];
+    [obj setMethodSignature: [NSObject instanceMethodSignatureForSelector: @selector(self)]];
+    
+    __block BOOL ran = NO;
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        ASSERT(ARG(id, 0, inv) == obj);
+        ASSERT(ARG(SEL, 1, inv) == @selector(self));
+        ran = YES;
+    }];
+    [[obj id] self];
+    ASSERT(ran);
+    [obj free];
+}
+
+static void ForwardingLotsOfArguments(void)
+{
+    __block GenericForwarder *obj = [GenericForwarder alloc];
+    
+    [obj setMethodSignature: [TestClass instanceMethodSignatureForSelector: @selector(objArgs::::::::::)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        for(int i = 0; i < 10; i++)
+            ASSERT([ARG(id, i + 2, inv) isEqual: @(i)]);
+    }];
+    [[obj id] objArgs: @0 : @1 : @2 : @3 : @4 : @5 : @6 : @7 : @8 : @9];
+    
+    [obj setMethodSignature: [TestClass instanceMethodSignatureForSelector: @selector(lotsOfIntArgs::::::::::)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        for(int i = 0; i < 10; i++)
+            ASSERT(ARG(int, i + 2, inv) == i);
+    }];
+    [[obj id] lotsOfIntArgs: 0 : 1 : 2 : 3 : 4 : 5 : 6 : 7 : 8 : 9];
+    
+    [obj free];
+}
+
+static void ForwardingReturn(void)
+{
+    __block GenericForwarder *obj = [GenericForwarder alloc];
+    
+    [obj setMethodSignature: [NSObject instanceMethodSignatureForSelector: @selector(self)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        [inv setReturnValue: &obj];
+    }];
+    ASSERT([[obj id] self] == obj);
+    
+    [obj setMethodSignature: [NSString instanceMethodSignatureForSelector: @selector(stringByAppendingString:)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        NSString *s = [@"Hello " stringByAppendingString: ARG(id, 2, inv)];
+        [inv setReturnValue: &s];
+    }];
+    ASSERT([[[obj id] stringByAppendingString: @"world"] isEqual: @"Hello world"]);
+    
+    [obj free];
 }
 
 int main(int argc, char **argv)
@@ -240,5 +358,7 @@ int main(int argc, char **argv)
     TEST(ObjectArguments);
     TEST(RetainArguments);
     TEST(ObjectReturn);
-    TEST(Forwarding);
+    TEST(BasicForwarding);
+    TEST(ForwardingLotsOfArguments);
+    TEST(ForwardingReturn);
 }
