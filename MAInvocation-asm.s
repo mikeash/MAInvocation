@@ -109,8 +109,9 @@ jmp _MAInvocationForwardCommon
 .globl _MAInvocationForwardCommon
 _MAInvocationForwardCommon:
 
-// Save the stack pointer into r11 temporarily
+// Calculate the location of the stack arguments, which are at rsp + 8
 movq %rsp, %r11
+addq $8, %r11
 
 // Save and set up frame pointer
 pushq %rbp
@@ -124,7 +125,7 @@ pushq %r10
 // Push a dummy rax
 pushq $0
 
-// Push stackArgs pointer, which is the saved rsp in r11
+// Push stackArgs pointer, which is in r11
 pushq %r11
 
 // Push a dummy stackArgsCount

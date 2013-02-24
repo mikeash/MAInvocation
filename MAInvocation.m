@@ -59,6 +59,15 @@ enum ArgumentClassification
     [super dealloc];
 }
 
+- (NSString *)description
+{
+    NSMutableArray *stackArgsStrings = [NSMutableArray array];
+    for(NSUInteger i = 0; i < _raw.stackArgsCount; i++)
+        [stackArgsStrings addObject: [NSString stringWithFormat: @"%llx", _raw.stackArgs[i]]];
+    NSString *stackArgsString = [stackArgsStrings componentsJoinedByString: @" "];
+    return [NSString stringWithFormat: @"<%@ %p: rdi=%llx rsi=%llx rdx=%llx rcx=%llx r8=%llx r9=%llx stackArgs=%p(%llx)[%@] rax=%llx isStretCall=%llx>", [self class], self, _raw.rdi, _raw.rsi, _raw.rdx, _raw.rcx, _raw.r8, _raw.r9, _raw.stackArgs, _raw.stackArgsCount, stackArgsString, _raw.rax, _raw.isStretCall];
+}
+
 - (NSMethodSignature *)methodSignature
 {
     return nil;
@@ -236,6 +245,22 @@ enum ArgumentClassification
 
 void MAInvocationForwardC(struct RawArguments *r)
 {
+    id obj = (id)r->rdi;
+    SEL sel = (SEL)r->rsi;
+    
+    NSMethodSignature *sig = [obj methodSignatureForSelector: sel];
+    
+    MAInvocation *inv = [[MAInvocation alloc] initWithMethodSignature: sig];
+    inv->_raw.rdi = r->rdi;
+    inv->_raw.rsi = r->rsi;
+    inv->_raw.rdx = r->rdx;
+    inv->_raw.rcx = r->rcx;
+    inv->_raw.r8 = r->r8;
+    inv->_raw.r9 = r->r9;
+    memcpy(inv->_raw.stackArgs, r->stackArgs, inv->_raw.stackArgsCount * sizeof(uint64_t));
+    inv->_raw.isStretCall = r->isStretCall;
+    [obj forwardInvocation: (id)inv];
+    [inv release];
 }
 
 void MAInvocationCall_disabled(struct RawArguments *r)
