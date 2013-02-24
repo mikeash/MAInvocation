@@ -47,6 +47,13 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 
 @end
 
+@interface TestClass (DummyMethods)
+
+- (void)dummyIntArgs: (int)a : (int)b : (int)c;
+- (struct { int a, b, c, d, e, f, g, h; })dummyStret;
+
+@end
+
 @implementation TestClass
 
 - (void)dealloc
@@ -217,6 +224,13 @@ static void ObjectReturn(void)
     [obj release];
 }
 
+static void Forwarding(void)
+{
+    TestClass *obj = [[TestClass alloc] init];
+    [obj dummyIntArgs: 1 : 2 : 3];
+    [obj dummyStret];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -226,4 +240,5 @@ int main(int argc, char **argv)
     TEST(ObjectArguments);
     TEST(RetainArguments);
     TEST(ObjectReturn);
+    TEST(Forwarding);
 }

@@ -84,3 +84,73 @@ popq %r12
 // Restore the frame pointer and return
 leave
 ret
+
+
+.globl _MAInvocationForwardStret
+_MAInvocationForwardStret:
+
+// Set %r10 to indicate that this is a stret call
+movq $1, %r10
+
+// Jump to the common handler
+jmp _MAInvocationForwardCommon
+
+
+.globl _MAInvocationForward
+_MAInvocationForward:
+
+// Set %r10 to indicate that this is a normal call
+movq $0, %r10
+
+// Jump to the common handler
+jmp _MAInvocationForwardCommon
+
+
+.globl _MAInvocationForwardCommon
+_MAInvocationForwardCommon:
+
+// Save the stack pointer into r11 temporarily
+movq %rsp, %r11
+
+// Save and set up frame pointer
+pushq %rbp
+movq %rsp, %rbp
+
+// Push RawArguments components one by one
+
+// Push isStretCall, which is the value of r10
+pushq %r10
+
+// Push a dummy rax
+pushq $0
+
+// Push stackArgs pointer, which is the saved rsp in r11
+pushq %r11
+
+// Push a dummy stackArgsCount
+pushq $0
+
+// Push argument registers
+pushq %r9
+pushq %r8
+pushq %rcx
+pushq %rdx
+pushq %rsi
+pushq %rdi
+
+// Push a dummy fptr
+pushq $0
+
+// Save the pointer to the newly constructed struct to pass it to the C function
+movq %rsp, %rdi
+
+// Align the stack
+andq $-0x10, %rsp
+
+// Call into C
+callq _MAInvocationForwardC
+
+// Restore the frame pointer and return
+leave
+ret
+

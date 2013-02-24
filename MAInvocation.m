@@ -2,6 +2,8 @@
 
 #import "MAInvocation-asm.h"
 
+#import <objc/runtime.h>
+
 
 enum ArgumentClassification
 {
@@ -14,6 +16,11 @@ enum ArgumentClassification
     NSMethodSignature *_sig;
     struct RawArguments _raw;
     BOOL _argumentsRetained;
+}
+
++ (void)initialize
+{
+    objc_setForwardHandler(MAInvocationForward, MAInvocationForwardStret);
 }
 
 + (NSInvocation *)invocationWithMethodSignature: (NSMethodSignature *)sig
@@ -225,6 +232,10 @@ enum ArgumentClassification
     if(strcmp(type, blockType) == 0)
         return ArgumentBlock;
     return ArgumentNonObject;
+}
+
+void MAInvocationForwardC(struct RawArguments *r)
+{
 }
 
 void MAInvocationCall_disabled(struct RawArguments *r)

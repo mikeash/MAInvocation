@@ -14,6 +14,10 @@ struct RawArguments
     uint64_t *stackArgs;
     
     uint64_t rax;
+    
+    uint64_t isStretCall;
 };
 
 void MAInvocationCall(struct RawArguments *);
+void MAInvocationForward(void);
+void MAInvocationForwardStret(void);
