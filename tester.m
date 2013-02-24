@@ -41,30 +41,29 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 
 @interface TestClass : NSObject {
     @public
-    NSMutableArray *_calledSelectors;
-    NSMutableArray *_calledArguments;
+    SEL _calledSelector;
+    NSArray *_calledArguments;
 }
 
 @end
 
 @implementation TestClass
 
-- (id)init
+- (void)dealloc
 {
-    if((self = [super init]))
-    {
-        _calledSelectors = [[NSMutableArray alloc] init];
-        _calledArguments = [[NSMutableArray alloc] init];
-    }
-    return self;
+    [_calledArguments release];
+    
+    [super dealloc];
 }
 
-#define RECORD(...) [self addCall: _cmd args: @[ __VA_ARGS__ ]]
+#define RECORD(...) [self recordCall: _cmd args: @[ __VA_ARGS__ ]]
 
-- (void)addCall: (SEL)sel args: (NSArray *)args
+- (void)recordCall: (SEL)sel args: (NSArray *)args
 {
-    [_calledSelectors addObject: NSStringFromSelector(sel)];
-    [_calledArguments addObject: args];
+    _calledSelector = sel;
+    [args retain];
+    [_calledArguments release];
+    _calledArguments = args;
 }
 
 - (id)retain
@@ -115,8 +114,8 @@ static void Simple(void)
     [inv setTarget: obj];
     [inv setSelector: sel];
     [inv invoke];
-    ASSERT([obj->_calledSelectors isEqual: @[ @"empty" ]], obj->_calledSelectors);
-    ASSERT([obj->_calledArguments isEqual: @[ @[] ]], obj->_calledArguments);
+    ASSERT(obj->_calledSelector == @selector(empty), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: @[]], obj->_calledArguments);
     [obj release];
 }
 
@@ -129,8 +128,8 @@ static void Argument(void)
     [inv setSelector: sel];
     [inv setArgument: &(int){ 42 } atIndex: 2];
     [inv invoke];
-    ASSERT([obj->_calledSelectors isEqual: @[ @"intArg:" ]], obj->_calledSelectors);
-    ASSERT([obj->_calledArguments isEqual: @[ @[ @42 ] ]], obj->_calledArguments);
+    ASSERT(obj->_calledSelector == @selector(intArg:), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: @[ @42 ]], obj->_calledArguments);
     [obj release];
 }
 
@@ -144,8 +143,8 @@ static void LotsOfArguments(void)
     for(int i = 0; i < 10; i++)
         [inv setArgument: &(int){ i } atIndex: i + 2];
     [inv invoke];
-    ASSERT([obj->_calledSelectors isEqual: @[ @"lotsOfIntArgs::::::::::" ]], obj->_calledSelectors);
-    ASSERT([obj->_calledArguments isEqual: (@[ @[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9 ] ])], obj->_calledArguments);
+    ASSERT(obj->_calledSelector == @selector(lotsOfIntArgs::::::::::), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: (@[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9 ])], obj->_calledArguments);
     [obj release];
 }
 
@@ -157,8 +156,8 @@ static void ReturnValue(void)
     [inv setTarget: obj];
     [inv setSelector: sel];
     [inv invoke];
-    ASSERT([obj->_calledSelectors isEqual: @[ @"returnInt" ]], obj->_calledSelectors);
-    ASSERT([obj->_calledArguments isEqual: @[ @[] ]], obj->_calledArguments);
+    ASSERT(obj->_calledSelector == @selector(returnInt), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: @[]], obj->_calledArguments);
     
     int val;
     [inv getReturnValue: &val];
@@ -177,8 +176,8 @@ static void ObjectArguments(void)
     for(int i = 0; i < 10; i++)
         [inv setArgument: &(id){ @(i) } atIndex: i + 2];
     [inv invoke];
-    ASSERT([obj->_calledSelectors isEqual: @[ @"objArgs::::::::::" ]], obj->_calledSelectors);
-    ASSERT([obj->_calledArguments isEqual: (@[ @[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9 ] ])], obj->_calledArguments);
+    ASSERT(obj->_calledSelector == @selector(objArgs::::::::::), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: (@[ @0, @1, @2, @3, @4, @5, @6, @7, @8, @9 ])], obj->_calledArguments);
     [obj release];
 }
 
@@ -195,8 +194,8 @@ static void RetainArguments(void)
     [inv retainArguments];
     [inv setArgument: &obj3 atIndex: 3];
     
-    ASSERT([obj2->_calledSelectors isEqual: @[ @"retain" ]], obj2->_calledSelectors);
-    ASSERT([obj3->_calledSelectors isEqual: @[ @"retain" ]], obj2->_calledSelectors);
+    ASSERT(obj2->_calledSelector == @selector(retain), NSStringFromSelector(obj2->_calledSelector));
+    ASSERT(obj3->_calledSelector == @selector(retain), NSStringFromSelector(obj3->_calledSelector));
     [obj release];
     [obj2 release];
     [obj3 release];
