@@ -44,18 +44,15 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 
 #define ARG(type, index, invocation) ^{ type temp; [invocation getArgument: &temp atIndex: (index)]; return temp; }()
 
+struct BigStruct { int a, b, c, d, e, f, g, h, i, j; };
+
 @interface TestClass : NSObject {
     @public
     SEL _calledSelector;
     NSArray *_calledArguments;
 }
 
-@end
-
-@interface TestClass (DummyMethods)
-
-- (void)dummyIntArgs: (int)a : (int)b : (int)c;
-- (struct { int a, b, c, d, e, f, g, h; })dummyStret;
+- (struct BigStruct)dummyStret;
 
 @end
 
@@ -113,6 +110,11 @@ static void Assert(const char *file, int line, const char *name, _Bool cond, NSA
 - (void)objArg: a : b
 {
     RECORD(a, b);
+}
+
+- (struct BigStruct)dummyStret
+{
+    return (struct BigStruct){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 }
 
 @end
@@ -366,6 +368,23 @@ static void ForwardingReturnSmallStruct(void)
     [obj free];
 }
 
+static void ForwardingReturnBigStruct(void)
+{
+    __block GenericForwarder *obj = [GenericForwarder alloc];
+    
+    [obj setMethodSignature: [TestClass instanceMethodSignatureForSelector: @selector(dummyStret)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        struct BigStruct r = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+        [inv setReturnValue: &r];
+    }];
+    
+    struct BigStruct s = [[obj id] dummyStret];
+    for(int i = 0; i < 10; i++)
+        ASSERT(((int *)&s)[i] == i);
+    
+    [obj free];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -379,4 +398,5 @@ int main(int argc, char **argv)
     TEST(ForwardingLotsOfArguments);
     TEST(ForwardingReturn);
     TEST(ForwardingReturnSmallStruct);
+    TEST(ForwardingReturnBigStruct);
 }

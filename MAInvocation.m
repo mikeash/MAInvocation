@@ -5,17 +5,23 @@
 #import <objc/runtime.h>
 
 
-enum ArgumentClassification
+enum TypeClassification
 {
-    ArgumentObject,
-    ArgumentBlock,
-    ArgumentNonObject
+    TypeObject,
+    TypeBlock,
+    TypeCString,
+    TypeInteger,
+    TypeTwoIntegers,
+    TypeEmptyStruct,
+    TypeStruct,
+    TypeOther
 };
 
 @implementation MAInvocation {
     NSMethodSignature *_sig;
     struct RawArguments _raw;
     BOOL _argumentsRetained;
+    void *_stretBuffer;
 }
 
 + (void)initialize
@@ -33,6 +39,8 @@ enum ArgumentClassification
     if((self = [super init]))
     {
         _sig = [sig retain];
+        
+        _raw.isStretCall = [self isStretReturn];
         
         NSUInteger argsCount = [sig numberOfArguments];
         if(argsCount > 6)
@@ -124,17 +132,20 @@ enum ArgumentClassification
 - (void)getReturnValue: (void *)retLoc
 {
     NSUInteger size = [self returnValueSize];
-    memcpy(retLoc, &_raw.rax_ret, size);
+    memcpy(retLoc, [self returnValuePtr], size);
 }
 
 - (void)setReturnValue: (void *)retLoc
 {
     NSUInteger size = [self returnValueSize];
-    memcpy(&_raw.rax_ret, retLoc, size);
+    memcpy([self returnValuePtr], retLoc, size);
 }
 
 - (void)getArgument: (void *)argumentLocation atIndex: (NSInteger)idx
 {
+    if(_raw.isStretCall)
+        idx++;
+    
     uint64_t *src = [self argumentPointerAtIndex: idx];
     
     if(src)
@@ -146,17 +157,20 @@ enum ArgumentClassification
 
 - (void)setArgument: (void *)argumentLocation atIndex: (NSInteger)idx
 {
+    if(_raw.isStretCall)
+        idx++;
+    
     uint64_t *dest = [self argumentPointerAtIndex: idx];
     
     if(dest)
     {
-        enum ArgumentClassification c = [self classifyArgumentAtIndex: idx];
-        if(_argumentsRetained && c == ArgumentObject)
+        enum TypeClassification c = [self classifyArgumentAtIndex: idx];
+        if(_argumentsRetained && c == TypeObject)
         {
             [*(id *)dest release];
             *(id *)dest = [*(id *)argumentLocation retain];
         }
-        else if(_argumentsRetained && c == ArgumentBlock)
+        else if(_argumentsRetained && c == TypeBlock)
         {
             [*(id *)dest release];
             *(id *)dest = [*(id *)argumentLocation copy];;
@@ -223,32 +237,108 @@ enum ArgumentClassification
 {
     for(NSUInteger i = 0; i < [_sig numberOfArguments]; i++)
     {
-        enum ArgumentClassification c = [self classifyArgumentAtIndex: i];
-        if(c == ArgumentObject || c == ArgumentBlock)
+        enum TypeClassification c = [self classifyArgumentAtIndex: i];
+        if(c == TypeObject || c == TypeBlock)
         {
             id arg;
             [self getArgument: &arg atIndex: i];
-            block(i, arg, c == ArgumentBlock);
+            block(i, arg, c == TypeBlock);
         }
     }
 }
 
-- (enum ArgumentClassification)classifyArgumentAtIndex: (NSUInteger)idx
+- (enum TypeClassification)classifyArgumentAtIndex: (NSUInteger)idx
+{
+    return [self classifyType: [_sig getArgumentTypeAtIndex: idx]];
+}
+
+- (enum TypeClassification)classifyType: (const char *)type
 {
     const char *idType = @encode(id);
     const char *blockType = @encode(void (^)(void));
-    const char *type = [_sig getArgumentTypeAtIndex: idx];
+    const char *charPtrType = @encode(char *);
     if(strcmp(type, idType) == 0)
-        return ArgumentObject;
+        return TypeObject;
     if(strcmp(type, blockType) == 0)
-        return ArgumentBlock;
-    return ArgumentNonObject;
+        return TypeBlock;
+    if(strcmp(type, charPtrType) == 0)
+        return TypeCString;
+    
+    char intTypes[] = { @encode(signed char)[0], @encode(unsigned char)[0], @encode(short)[0], @encode(unsigned short)[0], @encode(int)[0], @encode(unsigned int)[0], @encode(long)[0], @encode(unsigned long)[0], @encode(long long)[0], @encode(unsigned long long)[0], '?', '^', 0 };
+    if(strchr(intTypes, type[0]))
+        return TypeInteger;
+    
+    if(type[0] == '{')
+        return [self classifyStructType: type];
+    
+    return TypeOther;
+}
+
+- (enum TypeClassification)classifyStructType: (const char *)type
+{
+    __block enum TypeClassification structClassification = TypeEmptyStruct;
+    [self enumerateStructElementTypes: type block: ^(const char *type) {
+        enum TypeClassification elementClassification = [self classifyType: type];
+        if(structClassification == TypeEmptyStruct)
+            structClassification = elementClassification;
+        else if([self isIntegerClass: structClassification] && [self isIntegerClass: elementClassification])
+            structClassification = TypeTwoIntegers;
+        else
+            structClassification = TypeStruct;
+    }];
+    return structClassification;
+}
+
+- (BOOL)isIntegerClass: (enum TypeClassification)classification
+{
+    return classification == TypeObject || classification == TypeBlock || classification == TypeCString || classification == TypeInteger;
+}
+
+- (void)enumerateStructElementTypes: (const char *)type block: (void (^)(const char *type))block
+{
+    const char *equals = strchr(type, '=');
+    const char *cursor = equals + 1;
+    while(*cursor != '}')
+    {
+        block(cursor);
+        cursor = NSGetSizeAndAlignment(cursor, NULL, NULL);
+    }
+}
+
+- (BOOL)isStretReturn
+{
+    return [self classifyType: [_sig methodReturnType]] == TypeStruct;
+}
+
+- (void *)returnValuePtr
+{
+    if(_raw.isStretCall)
+    {
+        if(_stretBuffer == NULL)
+            _stretBuffer = calloc(1, [self returnValueSize]);
+        return _stretBuffer;
+    }
+    else
+    {
+        return &_raw.rax_ret;
+    }
 }
 
 void MAInvocationForwardC(struct RawArguments *r)
 {
-    id obj = (id)r->rdi;
-    SEL sel = (SEL)r->rsi;
+    id obj;
+    SEL sel;
+    
+    if(r->isStretCall)
+    {
+        obj = (id)r->rsi;
+        sel = (SEL)r->rdx;
+    }
+    else
+    {
+        obj = (id)r->rdi;
+        sel = (SEL)r->rsi;
+    }
     
     NSMethodSignature *sig = [obj methodSignatureForSelector: sel];
     
@@ -262,7 +352,11 @@ void MAInvocationForwardC(struct RawArguments *r)
     
     memcpy(inv->_raw.stackArgs, r->stackArgs, inv->_raw.stackArgsCount * sizeof(uint64_t));
     
-    inv->_raw.isStretCall = r->isStretCall;
+    if(r->isStretCall)
+    {
+        inv->_raw.isStretCall = 1;
+        inv->_stretBuffer = (void *)r->rdi;
+    }
     
     [obj forwardInvocation: (id)inv];
     
