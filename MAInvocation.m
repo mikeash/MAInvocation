@@ -129,6 +129,8 @@ enum ArgumentClassification
 
 - (void)setReturnValue: (void *)retLoc
 {
+    NSUInteger size = [self returnValueSize];
+    memcpy(&_raw.rax, retLoc, size);
 }
 
 - (void)getArgument: (void *)argumentLocation atIndex: (NSInteger)idx
@@ -257,9 +259,15 @@ void MAInvocationForwardC(struct RawArguments *r)
     inv->_raw.rcx = r->rcx;
     inv->_raw.r8 = r->r8;
     inv->_raw.r9 = r->r9;
+    
     memcpy(inv->_raw.stackArgs, r->stackArgs, inv->_raw.stackArgsCount * sizeof(uint64_t));
+    
     inv->_raw.isStretCall = r->isStretCall;
+    
     [obj forwardInvocation: (id)inv];
+    
+    r->rax = inv->_raw.rax;
+    
     [inv release];
 }
 

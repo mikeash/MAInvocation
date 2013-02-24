@@ -145,11 +145,17 @@ pushq $0
 // Save the pointer to the newly constructed struct to pass it to the C function
 movq %rsp, %rdi
 
+// Also save it in r12 so we can get to it afterwards
+movq %rdi, %r12
+
 // Align the stack
 andq $-0x10, %rsp
 
 // Call into C
 callq _MAInvocationForwardC
+
+// Copy the return value out of the RawArguments
+movq 72(%r12), %rax
 
 // Restore the frame pointer and return
 leave
