@@ -6,14 +6,16 @@ _MAInvocationCall:
 pushq %rbp
 movq %rsp, %rbp
 
-// Save r12 so we can use it for the argument
+// Save r12-r15 so we can use them
 pushq %r12
+pushq %r13
+pushq %r14
+pushq %r15
 
 // Move the struct RawArguments into r12 so we can mess with rdi
 mov %rdi, %r12
 
 // Save the current stack pointer to r15 before messing with it
-pushq %r15
 mov %rsp, %r15
 
 // Copy stack arguments to the stack
@@ -69,9 +71,11 @@ callq *(%r12)
 
 // Restore the stack pointer
 mov %r15, %rsp
-popq %r15
 
-// Restore r12 for the caller
+// Restore r12-15 for the caller
+popq %r15
+popq %r14
+popq %r13
 popq %r12
 
 // Restore the frame pointer and return
