@@ -12,6 +12,8 @@ struct RawArguments
     
     uint64_t stackArgsCount;
     uint64_t *stackArgs;
+    
+    uint64_t rax;
 };
 
 void MAInvocationCall(struct RawArguments *);

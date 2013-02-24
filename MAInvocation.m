@@ -77,6 +77,8 @@
 
 - (void)getReturnValue: (void *)retLoc
 {
+    NSUInteger size = [self returnValueSize];
+    memcpy(retLoc, &_raw.rax, size);
 }
 
 - (void)setReturnValue: (void *)retLoc
@@ -140,7 +142,16 @@
 
 - (NSUInteger)sizeAtIndex: (NSInteger)idx
 {
-    const char *type = [_sig getArgumentTypeAtIndex: idx];
+    return [self sizeOfType: [_sig getArgumentTypeAtIndex: idx]];
+}
+
+- (NSUInteger)returnValueSize
+{
+    return [self sizeOfType: [_sig methodReturnType]];
+}
+
+- (NSUInteger)sizeOfType: (const char *)type
+{
     NSUInteger size;
     NSGetSizeAndAlignment(type, &size, NULL);
     return size;

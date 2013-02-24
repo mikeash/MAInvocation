@@ -69,6 +69,9 @@ movq 48(%r12), %r9
 // Call the function pointer
 callq *(%r12)
 
+// Copy the result register into the args struct
+movq %rax, 72(%r12)
+
 // Restore the stack pointer
 mov %r15, %rsp
 
