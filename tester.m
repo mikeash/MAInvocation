@@ -349,6 +349,23 @@ static void ForwardingReturn(void)
     [obj free];
 }
 
+static void ForwardingReturnSmallStruct(void)
+{
+    __block GenericForwarder *obj = [GenericForwarder alloc];
+    
+    [obj setMethodSignature: [NSString instanceMethodSignatureForSelector: @selector(rangeOfString:)]];
+    [obj setInvocationHandler: ^(MAInvocation *inv) {
+        NSRange r = { 42, 999 };
+        [inv setReturnValue: &r];
+    }];
+    
+    NSRange r = [[obj id] rangeOfString: nil];
+    ASSERT(r.location == 42, @(r.location));
+    ASSERT(r.length == 999, @(r.length));
+    
+    [obj free];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -361,4 +378,5 @@ int main(int argc, char **argv)
     TEST(BasicForwarding);
     TEST(ForwardingLotsOfArguments);
     TEST(ForwardingReturn);
+    TEST(ForwardingReturnSmallStruct);
 }

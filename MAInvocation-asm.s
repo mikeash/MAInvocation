@@ -122,7 +122,8 @@ movq %rsp, %rbp
 // Push isStretCall, which is the value of r10
 pushq %r10
 
-// Push a dummy rax
+// Push a dummy rax and rdx
+pushq $0
 pushq $0
 
 // Push stackArgs pointer, which is in r11
@@ -156,6 +157,7 @@ callq _MAInvocationForwardC
 
 // Copy the return value out of the RawArguments
 movq 72(%r12), %rax
+movq 80(%r12), %rdx
 
 // Restore the frame pointer and return
 leave

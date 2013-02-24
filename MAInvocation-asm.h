@@ -13,7 +13,8 @@ struct RawArguments
     uint64_t stackArgsCount;
     uint64_t *stackArgs;
     
-    uint64_t rax;
+    uint64_t rax_ret;
+    uint64_t rdx_ret;
     
     uint64_t isStretCall;
 };

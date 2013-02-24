@@ -65,7 +65,7 @@ enum ArgumentClassification
     for(NSUInteger i = 0; i < _raw.stackArgsCount; i++)
         [stackArgsStrings addObject: [NSString stringWithFormat: @"%llx", _raw.stackArgs[i]]];
     NSString *stackArgsString = [stackArgsStrings componentsJoinedByString: @" "];
-    return [NSString stringWithFormat: @"<%@ %p: rdi=%llx rsi=%llx rdx=%llx rcx=%llx r8=%llx r9=%llx stackArgs=%p(%llx)[%@] rax=%llx isStretCall=%llx>", [self class], self, _raw.rdi, _raw.rsi, _raw.rdx, _raw.rcx, _raw.r8, _raw.r9, _raw.stackArgs, _raw.stackArgsCount, stackArgsString, _raw.rax, _raw.isStretCall];
+    return [NSString stringWithFormat: @"<%@ %p: rdi=%llx rsi=%llx rdx=%llx rcx=%llx r8=%llx r9=%llx stackArgs=%p(%llx)[%@] rax_ret=%llx rdx_ret=%llx isStretCall=%llx>", [self class], self, _raw.rdi, _raw.rsi, _raw.rdx, _raw.rcx, _raw.r8, _raw.r9, _raw.stackArgs, _raw.stackArgsCount, stackArgsString, _raw.rax_ret, _raw.rdx_ret, _raw.isStretCall];
 }
 
 - (NSMethodSignature *)methodSignature
@@ -124,13 +124,13 @@ enum ArgumentClassification
 - (void)getReturnValue: (void *)retLoc
 {
     NSUInteger size = [self returnValueSize];
-    memcpy(retLoc, &_raw.rax, size);
+    memcpy(retLoc, &_raw.rax_ret, size);
 }
 
 - (void)setReturnValue: (void *)retLoc
 {
     NSUInteger size = [self returnValueSize];
-    memcpy(&_raw.rax, retLoc, size);
+    memcpy(&_raw.rax_ret, retLoc, size);
 }
 
 - (void)getArgument: (void *)argumentLocation atIndex: (NSInteger)idx
@@ -266,7 +266,8 @@ void MAInvocationForwardC(struct RawArguments *r)
     
     [obj forwardInvocation: (id)inv];
     
-    r->rax = inv->_raw.rax;
+    r->rax_ret = inv->_raw.rax_ret;
+    r->rdx_ret = inv->_raw.rdx_ret;
     
     [inv release];
 }
