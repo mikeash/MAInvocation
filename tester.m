@@ -102,6 +102,12 @@ struct BigStruct { int a, b, c, d, e, f, g, h, i, j; };
     return 42;
 }
 
+- (NSRange)returnNSRange
+{
+    RECORD();
+    return NSMakeRange(1111, 2222);
+}
+
 - (void)objArgs: a : b : c : d : e : f : g : h : i : j
 {
     RECORD(a, b, c, d, e, f, g, h, i, j);
@@ -243,6 +249,25 @@ static void ReturnValue(void)
     int val;
     [inv getReturnValue: &val];
     ASSERT(val == 42, @(val));
+    
+    [obj release];
+}
+
+static void ReturnSmallStruct(void)
+{
+    TestClass *obj = [[TestClass alloc] init];
+    SEL sel = @selector(returnNSRange);
+    MAInvocation *inv = [MAInvocation invocationWithMethodSignature: [obj methodSignatureForSelector: sel]];
+    [inv setTarget: obj];
+    [inv setSelector: sel];
+    [inv invoke];
+    ASSERT(obj->_calledSelector == @selector(returnNSRange), NSStringFromSelector(obj->_calledSelector));
+    ASSERT([obj->_calledArguments isEqual: @[]], obj->_calledArguments);
+    
+    NSRange r;
+    [inv getReturnValue: &r];
+    ASSERT(r.location == 1111, @(r.location));
+    ASSERT(r.length == 2222, @(r.length));
     
     [obj release];
 }
@@ -443,6 +468,7 @@ int main(int argc, char **argv)
     TEST(Argument);
     TEST(LotsOfArguments);
     TEST(ReturnValue);
+    TEST(ReturnSmallStruct);
     TEST(ObjectArguments);
     TEST(RetainArguments);
     TEST(ObjectReturn);
