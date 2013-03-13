@@ -210,6 +210,7 @@ enum TypeClassification
 
 - (void)invokeWithTarget: (id)target
 {
+    [self setTarget: target];
     _raw.fptr = [target methodForSelector: [self selector]];
     if(_raw.isStretCall)
         _raw.rdi = (uint64_t)[self returnValuePtr];
