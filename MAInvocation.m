@@ -43,6 +43,9 @@ enum TypeClassification
         _raw.isStretCall = [self isStretReturn];
         
         NSUInteger argsCount = [sig numberOfArguments];
+        if(_raw.isStretCall)
+            argsCount++;
+        
         if(argsCount > 6)
         {
             _raw.stackArgsCount = argsCount - 6;

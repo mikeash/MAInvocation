@@ -127,6 +127,12 @@ struct BigStruct { int a, b, c, d, e, f, g, h, i, j; };
 {
 }
 
+- (struct BigStruct)stret: a : b : c : d
+{
+    RECORD(a, b, c, d);
+    return (struct BigStruct){ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+}
+
 @end
 
 
@@ -462,6 +468,33 @@ static void CStringCopying(void)
     [obj release];
 }
 
+static void StretWithSixArguments(void)
+{
+    TestClass *obj = [[TestClass alloc] init];
+    
+    SEL sel = @selector(stret::::);
+    MAInvocation *inv = [MAInvocation invocationWithMethodSignature: [obj methodSignatureForSelector: sel]];
+    [inv setTarget: obj];
+    [inv setSelector: sel];
+    
+    for(int i = 0; i < 4; i++)
+    {
+        id arg = @(i);
+        [inv setArgument: &arg atIndex: i + 2];
+    }
+    
+    [inv invoke];
+    
+    ASSERT([obj->_calledArguments isEqual: (@[ @0, @1, @2, @3 ])], obj->_calledArguments);
+    
+    struct BigStruct s;
+    [inv getReturnValue: &s];
+    for(int i = 0; i < 10; i++)
+        ASSERT(((int *)&s)[i] == i);
+    
+    [obj release];
+}
+
 int main(int argc, char **argv)
 {
     TEST(Simple);
@@ -479,4 +512,5 @@ int main(int argc, char **argv)
     TEST(ForwardingReturnBigStruct);
     TEST(StretCall);
     TEST(CStringCopying);
+    TEST(StretWithSixArguments);
 }
