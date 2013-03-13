@@ -157,12 +157,10 @@ enum TypeClassification
         rawArgumentIndex++;
     
     uint64_t *src = [self argumentPointerAtIndex: rawArgumentIndex];
+    assert(src);
     
-    if(src)
-    {
-        NSUInteger size = [self sizeAtIndex: idx];
-        memcpy(argumentLocation, src, size);
-    }
+    NSUInteger size = [self sizeAtIndex: idx];
+    memcpy(argumentLocation, src, size);
 }
 
 - (void)setArgument: (void *)argumentLocation atIndex: (NSInteger)idx
@@ -172,34 +170,32 @@ enum TypeClassification
         rawArgumentIndex++;
     
     uint64_t *dest = [self argumentPointerAtIndex: rawArgumentIndex];
+    assert(dest);
     
-    if(dest)
+    enum TypeClassification c = [self classifyArgumentAtIndex: idx];
+    if(_argumentsRetained && c == TypeObject)
     {
-        enum TypeClassification c = [self classifyArgumentAtIndex: idx];
-        if(_argumentsRetained && c == TypeObject)
-        {
-            [*(id *)dest release];
-            *(id *)dest = [*(id *)argumentLocation retain];
-        }
-        else if(_argumentsRetained && c == TypeBlock)
-        {
-            [*(id *)dest release];
-            *(id *)dest = [*(id *)argumentLocation copy];;
-        }
-        else if(_argumentsRetained && c == TypeCString)
-        {
-            free(*(char **)dest);
-            
-            char *cstr = *(char **)argumentLocation;
-            if(cstr != NULL)
-                cstr = strdup(cstr);
-            *(char **)dest = cstr;
-        }
-        else
-        {
-            NSUInteger size = [self sizeAtIndex: idx];
-            memcpy(dest, argumentLocation, size);
-        }
+        [*(id *)dest release];
+        *(id *)dest = [*(id *)argumentLocation retain];
+    }
+    else if(_argumentsRetained && c == TypeBlock)
+    {
+        [*(id *)dest release];
+        *(id *)dest = [*(id *)argumentLocation copy];;
+    }
+    else if(_argumentsRetained && c == TypeCString)
+    {
+        free(*(char **)dest);
+        
+        char *cstr = *(char **)argumentLocation;
+        if(cstr != NULL)
+            cstr = strdup(cstr);
+        *(char **)dest = cstr;
+    }
+    else
+    {
+        NSUInteger size = [self sizeAtIndex: idx];
+        memcpy(dest, argumentLocation, size);
     }
 }
 
