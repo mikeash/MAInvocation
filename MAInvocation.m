@@ -81,7 +81,7 @@ enum TypeClassification
 
 - (NSMethodSignature *)methodSignature
 {
-    return nil;
+    return _sig;
 }
 
 - (void)retainArguments
