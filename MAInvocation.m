@@ -387,16 +387,15 @@ void MAInvocationForwardC(struct RawArguments *r)
     
     memcpy(inv->_raw.stackArgs, r->stackArgs, inv->_raw.stackArgsCount * sizeof(uint64_t));
     
-    if(r->isStretCall)
-    {
-        inv->_raw.isStretCall = 1;
-        inv->_stretBuffer = (void *)r->rdi;
-    }
-    
     [obj forwardInvocation: (id)inv];
     
     r->rax_ret = inv->_raw.rax_ret;
     r->rdx_ret = inv->_raw.rdx_ret;
+
+    if(r->isStretCall && inv->_stretBuffer)
+    {
+        memcpy((void *)r->rdi, inv->_stretBuffer, [inv returnValueSize]);
+    }
     
     [inv release];
 }
