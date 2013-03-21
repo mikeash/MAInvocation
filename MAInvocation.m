@@ -400,14 +400,4 @@ void MAInvocationForwardC(struct RawArguments *r)
     [inv release];
 }
 
-void MAInvocationCall_disabled(struct RawArguments *r)
-{
-    void (*f)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) = r->fptr;
-    f(r->rdi, r->rsi, r->rdx, r->rcx, r->r8, r->r9, r->stackArgs[0], r->stackArgs[1], r->stackArgs[2]);
-    uint64_t stackArgs[r->stackArgsCount];
-    for(uint64_t i = 0; i < r->stackArgsCount; i++)
-        stackArgs[i] = r->stackArgs[i];
-    r->fptr = stackArgs;
-}
-
 @end
