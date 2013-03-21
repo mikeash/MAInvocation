@@ -61,6 +61,8 @@ enum TypeClassification
     {
         [self iterateRetainableArguments: ^(NSUInteger idx, id obj, id block, char *cstr) {
             [obj release];
+            [block release];
+            free(cstr);
         }];
     }
     
