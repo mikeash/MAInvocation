@@ -175,22 +175,26 @@ enum TypeClassification
     enum TypeClassification c = [self classifyArgumentAtIndex: idx];
     if(_argumentsRetained && c == TypeObject)
     {
-        [*(id *)dest release];
+        id old = *(id *)dest;
         *(id *)dest = [*(id *)argumentLocation retain];
+        [old release];
     }
     else if(_argumentsRetained && c == TypeBlock)
     {
-        [*(id *)dest release];
-        *(id *)dest = [*(id *)argumentLocation copy];;
+        id old = *(id *)dest;
+        *(id *)dest = [*(id *)argumentLocation copy];
+        [old release];
     }
     else if(_argumentsRetained && c == TypeCString)
     {
-        free(*(char **)dest);
+        char *old = *(char **)dest;
         
         char *cstr = *(char **)argumentLocation;
         if(cstr != NULL)
             cstr = strdup(cstr);
         *(char **)dest = cstr;
+        
+        free(old);
     }
     else
     {
